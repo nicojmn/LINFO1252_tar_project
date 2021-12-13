@@ -1,5 +1,34 @@
 #include "lib_tar.h"
 
+int check_version_and_magic(char *address_tar) {
+//    printf("MAGIC:   %s\n", address_tar+257);
+//    printf("VERSION: %s\n", address_tar+263);
+    if (!(strcmp(address_tar+257, TMAGIC) == 0 || address_tar+257 == NULL)) return -1;
+    if (!(strcmp(address_tar+263, TVERSION) == 0 || address_tar+263 != NULL)) return -2;
+    return 0;
+}
+
+int check_chksum(char *address_tar) {
+    u_int chksum_val;
+    u_int chksum_calc = 0;
+
+    for (int i = 0; i < 512; ++i) {
+        if (i == 148) { // chksum all bytes = char [SPACE] (32 == 0x20) == BLANK
+            chksum_val = TAR_INT((address_tar+i));
+            chksum_calc += 32*8;
+            i += 7;
+        } else {
+            chksum_calc += address_tar[i];
+        }
+    }
+
+//    printf("chksum_val  : %d\n", chksum_val);
+//    printf("chksum_calc : %d\n", chksum_calc);
+
+    if (chksum_val != chksum_calc) return -3;
+    return 0;
+}
+
 /**
  * Checks whether the archive is valid.
  *
@@ -16,8 +45,15 @@
  *         -3 if the archive contains a header with an invalid checksum value
  */
 int check_archive(int tar_fd) {
-    lseek(tar_fd, 0, SEEK_SET); // Point at the beginning of the file
-    return 0;
+    int res;
+    size_t header_size = sizeof(tar_header_t);
+    char *address_tar = mmap(NULL, header_size, PROT_READ, MAP_SHARED, tar_fd, 0);
+
+    res = check_version_and_magic(address_tar);
+    if (res == 0) res = check_chksum(address_tar);
+
+    munmap(address_tar, header_size);
+    return res;
 }
 
 /**
