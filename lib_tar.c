@@ -16,6 +16,7 @@
  *         -3 if the archive contains a header with an invalid checksum value
  */
 int check_archive(int tar_fd) {
+    lseek(tar_fd, 0, SEEK_SET); // Point at the beginning of the file
     return 0;
 }
 
@@ -29,16 +30,13 @@ int check_archive(int tar_fd) {
  *         any other value otherwise.
  */
 int exists(int tar_fd, char *path) {
+    lseek(tar_fd, 0, SEEK_SET); // Point at the beginning of the file
     tar_header_t *tar_header = (tar_header_t *) malloc(sizeof(tar_header_t));
 
     while (read(tar_fd, tar_header, sizeof(tar_header_t)) != 0) {
-
         if (strcmp(tar_header->name, path) == 0) return 1;
         lseek(tar_fd, TAR_INT(tar_header->size + sizeof(tar_header_t) + sizeof(tar_header->padding)), SEEK_CUR);
     }
-
-    // TODO : remettre correctement la tête de lecture au début du fichier
-    lseek(tar_fd, 0, SEEK_SET);
 
     free(tar_header);
     return 0;
@@ -54,6 +52,7 @@ int exists(int tar_fd, char *path) {
  *         any other value otherwise.
  */
 int is_dir(int tar_fd, char *path) {
+    lseek(tar_fd, 0, SEEK_SET); // Point at the beginning of the file
     return 0;
 }
 
@@ -67,6 +66,7 @@ int is_dir(int tar_fd, char *path) {
  *         any other value otherwise.
  */
 int is_file(int tar_fd, char *path) {
+    lseek(tar_fd, 0, SEEK_SET); // Point at the beginning of the file
     return 0;
 }
 
@@ -79,6 +79,7 @@ int is_file(int tar_fd, char *path) {
  *         any other value otherwise.
  */
 int is_symlink(int tar_fd, char *path) {
+    lseek(tar_fd, 0, SEEK_SET); // Point at the beginning of the file
     return 0;
 }
 
@@ -106,6 +107,7 @@ int is_symlink(int tar_fd, char *path) {
  *         any other value otherwise.
  */
 int list(int tar_fd, char *path, char **entries, size_t *no_entries) {
+    lseek(tar_fd, 0, SEEK_SET); // Point at the beginning of the file
     return 0;
 }
 
@@ -128,5 +130,6 @@ int list(int tar_fd, char *path, char **entries, size_t *no_entries) {
  *
  */
 ssize_t read_file(int tar_fd, char *path, size_t offset, uint8_t *dest, size_t *len) {
+    lseek(tar_fd, 0, SEEK_SET); // Point at the beginning of the file
     return 0;
 }
