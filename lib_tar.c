@@ -135,6 +135,14 @@ int is_file(int tar_fd, char *path) {
  */
 int is_symlink(int tar_fd, char *path) {
     lseek(tar_fd, 0, SEEK_SET); // Point at the beginning of the file
+    tar_header_t *tar_header = (tar_header_t *) malloc(sizeof(tar_header_t));
+
+    while (read(tar_fd, tar_header, sizeof(tar_header_t)) != 0) {
+        if (strcmp(tar_header->name, path) == 0 && tar_header->typeflag == SYMTYPE) return 1;
+        lseek(tar_fd, TAR_INT(tar_header->size + sizeof(tar_header_t) + sizeof(tar_header->padding)), SEEK_CUR);
+    }
+
+    free(tar_header);
     return 0;
 }
 
