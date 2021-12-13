@@ -43,21 +43,18 @@ int main(int argc, char **argv) {
     // Tests with skeleton.tar
 
     int exists_make = exists(fd, "Makefile");
-    printf("exists (Makefile) returned %d\n", exists_make);
-
+    printf("exists (Makefile) returned %d, and should return 1\n", exists_make);
     int exists_tests_c = exists(fd, "tests.c");
-    printf("exists (tests.c) returned %d\n", exists_tests_c);
+    printf("exists (tests.c) returned %d, and should return 1\n", exists_tests_c);
 
     int exists_lib_c = exists(fd, "lib_tar.c");
-    printf("exists (lib_tar.c) returned %d\n", exists_lib_c);
+    printf("exists (lib_tar.c) returned %d, and should return 1\n", exists_lib_c);
 
     int exists_lib_h = exists(fd, "lib_tar.h");
-    printf("exists (lib_tar.h) returned %d\n", exists_lib_h);
-
-
+    printf("exists (lib_tar.h) returned %d, and should return 1\n", exists_lib_h);
 
     int file_not_in_tar = exists(fd, "dghjkulim.o");
-    printf("exists (not in tar) returned %d\n", file_not_in_tar);
+    printf("exists (not in tar) returned %d, and should return 0\n", file_not_in_tar);
 
     return 0;
 }

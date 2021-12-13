@@ -1,5 +1,6 @@
 #include "lib_tar.h"
 
+// TODO : clean code
 int check_version_and_magic(char *address_tar) {
 //    printf("MAGIC:   %s\n", address_tar+257);
 //    printf("VERSION: %s\n", address_tar+263);
@@ -45,6 +46,8 @@ int check_chksum(char *address_tar) {
  *         -3 if the archive contains a header with an invalid checksum value
  */
 int check_archive(int tar_fd) {
+    lseek(tar_fd, 0, SEEK_SET); // Point at the beginning of the file
+
     int res;
     size_t header_size = sizeof(tar_header_t);
     char *address_tar = mmap(NULL, header_size, PROT_READ, MAP_SHARED, tar_fd, 0);
