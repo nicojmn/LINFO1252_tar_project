@@ -95,7 +95,7 @@ int is_dir(int tar_fd, char *path) {
     tar_header_t *tar_header = (tar_header_t *) malloc(sizeof(tar_header_t));
 
     while (read(tar_fd, tar_header, sizeof(tar_header_t)) != 0) {
-        if (strcmp(tar_header->name, path) == 0 && tar_header->typeflag == '5') return 1;
+        if (strcmp(tar_header->name, path) == 0 && tar_header->typeflag == DIRTYPE) return 1;
         lseek(tar_fd, TAR_INT(tar_header->size + sizeof(tar_header_t) + sizeof(tar_header->padding)), SEEK_CUR);
     }
 
