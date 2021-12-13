@@ -40,7 +40,7 @@ int main(int argc, char **argv) {
     printf("check_archive returned %d\n", ret);
 
 
-    // Tests with skeleton.tar
+    // Tests with soumission.tar
 
     int exists_make = exists(fd, "Makefile");
     printf("exists (Makefile) returned %d, and should return 1\n", exists_make);
@@ -55,6 +55,16 @@ int main(int argc, char **argv) {
 
     int file_not_in_tar = exists(fd, "dghjkulim.o");
     printf("exists (not in tar) returned %d, and should return 0\n", file_not_in_tar);
+
+    // is_dir() test
+
+    int dir_make = is_dir(fd, "Makefile");
+    printf("is_dir (Makefile) returned %d, and should return 0\n", dir_make);
+
+    // add directory CMake-build-debug for this test
+
+    int dir_cmake = is_dir(fd, "cmake-build-debug/");
+    printf("is_dir (cmake-build-debug) returned %d, and should return 1\n", dir_cmake);
 
     return 0;
 }
