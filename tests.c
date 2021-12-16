@@ -31,17 +31,17 @@ int main(int argc, char **argv) {
     }
 
     int fd = open(argv[1] , O_RDONLY);
+//    int fd = open("/home/guillaume/Projects/CLionProjects/[LINFO1252] Systemes Informatiques/[PROJECT2] TAR/soumission.tar" , O_RDONLY);
     if (fd == -1) {
         perror("open(tar_file)");
         return -1;
     }
 
     int ret = check_archive(fd);
-    printf("check_archive returned %d\n", ret);
+    printf("check_archive returned %d, and should return [0..inf]\n", ret);
 
 
     // Tests with soumission.tar
-
     int exists_make = exists(fd, "Makefile");
     printf("exists (Makefile) returned %d, and should return 1\n", exists_make);
     int exists_tests_c = exists(fd, "tests.c");
@@ -57,12 +57,10 @@ int main(int argc, char **argv) {
     printf("exists (not in tar) returned %d, and should return 0\n", file_not_in_tar);
 
     // is_dir() test
-
     int dir_make = is_dir(fd, "Makefile");
     printf("is_dir (Makefile) returned %d, and should return 0\n", dir_make);
 
     // add directory CMake-build-debug for this test
-
     int dir_cmake = is_dir(fd, "cmake-build-debug/");
     printf("is_dir (cmake-build-debug) returned %d, and should return 1\n", dir_cmake);
 
