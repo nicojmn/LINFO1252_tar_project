@@ -1,20 +1,20 @@
 #include "lib_tar.h"
 #include <stdbool.h>
 
-//void debug_dump(const uint8_t *bytes, size_t len) {
-//    for (int i = 0; i < len;) {
-//        printf("%04x:  ", (int) i);
-//
-//        for (int j = 0; j < 16 && i + j < len; j++) {
-//            printf("%02x ", bytes[i + j]);
-//        }
-//        printf("\t");
-//        for (int j = 0; j < 16 && i < len; j++, i++) {
-//            printf("%c ", bytes[i]);
-//        }
-//        printf("\n");
-//    }
-//}
+void debug(const uint8_t *bytes, size_t len) {
+    for (int i = 0; i < len;) {
+        printf("%04x:  ", (int) i);
+
+        for (int j = 0; j < 16 && i + j < len; j++) {
+            printf("%02x ", bytes[i + j]);
+        }
+        printf("\t");
+        for (int j = 0; j < 16 && i < len; j++, i++) {
+            printf("%c ", bytes[i]);
+        }
+        printf("\n");
+    }
+}
 
 /**
  * Check if the current header has an empty name.
@@ -61,6 +61,14 @@ off_t offset_header(int tar_fd, char *path) {
     return -1;
 }
 
+/**
+ * Check if the magic and version values are valid.
+ *
+ * @param tar_header The header of the current file.
+ * @return -1 if the archive contains a header with an invalid magic value,
+ *         -2 if the archive contains a header with an invalid version value,
+ *          0 otherwise
+ */
 int check_magic_and_version(tar_header_t* tar_header) {
     char curr_version[3] = {tar_header->version[0], tar_header->version[1], '\0'};
     if (strcmp(tar_header->magic, TMAGIC) != 0) return -1;
@@ -68,6 +76,13 @@ int check_magic_and_version(tar_header_t* tar_header) {
     return 0;
 }
 
+/**
+ * Calculate the checksum of the current header file in the tar archive.
+ *
+ * @param address_tar the address of the current file header
+ * @return -3 if the archive contains a header with an invalid checksum value,
+ *          0 otherwise
+ */
 int check_chksum(char *address_tar) {
     u_int chksum_val = 0;
     u_int chksum_calc = 0;
@@ -103,7 +118,6 @@ int check_archive(int tar_fd) {
     int nbr_files = 0;
     for (; read(tar_fd, tar_header, sizeof(tar_header_t)) > 0; nbr_files++) {
         if (is_tar_eof(tar_header)) break;
-//        debug_dump((uint8_t *) tar_header, sizeof(tar_header_t));
 
         int res = check_magic_and_version(tar_header);
         if (res == 0) res = check_chksum((char *) tar_header);
@@ -183,6 +197,62 @@ int is_symlink(int tar_fd, char *path) {
 }
 
 /**
+ * Check if the elem_path is in the main_path
+ *
+ * @param main_path a path
+ * @param elem_path a path
+ * @return true if elem_path is in main_path,
+ *         false otherwise
+ */
+bool is_in_folder(const char* main_path, const char* elem_path) {
+    for (int i = 0; main_path[i] != '\0' ; ++i) {
+        if (elem_path[i] == '\0') return false;
+        if (main_path[i] != elem_path[i]) return false;
+    }
+    return true;
+}
+
+/**
+ * Find the last backslash '/' in the path
+ *
+ * @param path a path
+ * @return a positive number which represents the index of the last '/' in the path.
+ */
+int index_last_backslash(char *path) {
+    u_int last = strlen(path)-1; int i;
+    for (i = (int) last; (i >= 0 && path[i] != '/'); i--);
+//    if (last == i) return i;
+    return i;
+}
+
+/**
+ * Add a '/' at the end of the path.
+ *
+ * @param path a path
+ */
+void dir_parser(char *path) {
+    strcat(path, "/");
+}
+
+/**
+ * Redirect the linked path pointed by the symlink path
+ *
+ * @param sym_path a path of a symlink
+ * @param link_name the filename of the file linked
+ * @return the new full path to the link file.
+ */
+char* redirect_linked_path(char *sym_path, char *link_name) {
+    int parent_path_index = index_last_backslash(sym_path);
+    uint len_link_name = strlen(link_name);
+    if (len_link_name + parent_path_index+1 >= 100) return NULL;
+
+    char *link_path = malloc(sizeof(char)*100);
+    memcpy(link_path, sym_path, parent_path_index+1);
+    memcpy(link_path+parent_path_index+1, link_name, len_link_name);
+    return link_path;
+}
+
+/**
  * Lists the entries at a given path in the archive.
  * list() does not recurse into the directories listed at the given path.
  *
@@ -205,8 +275,67 @@ int is_symlink(int tar_fd, char *path) {
  *         any other value otherwise.
  */
 int list(int tar_fd, char *path, char **entries, size_t *no_entries) {
-    lseek(tar_fd, 0, SEEK_SET); // Point at the beginning of the file
-    return 0;
+    lseek(tar_fd, offset_header(tar_fd, path), SEEK_SET); // Point at the beginning of the file
+    tar_header_t *tar_header = malloc(sizeof(tar_header_t));
+
+    char *main_path; bool was_sym = false;
+    if (read(tar_fd, tar_header, sizeof(tar_header_t)) <= 0) { // path not found
+        free(tar_header);
+        *no_entries = 0;
+        return 0;
+
+    } else if (tar_header->typeflag != DIRTYPE) { // path is not a directory
+        if (tar_header->typeflag == SYMTYPE || tar_header->typeflag == LNKTYPE) { // path is a symlink
+            char* link_path = redirect_linked_path(path, tar_header->linkname);
+            lseek(tar_fd, offset_header(tar_fd, link_path), SEEK_SET);
+            long result = read(tar_fd, tar_header, sizeof(tar_header_t));
+
+            if (result <= 0) { // link_path not found
+                dir_parser(link_path); // Maybe a directory
+                lseek(tar_fd, offset_header(tar_fd, link_path), SEEK_SET);
+                result = read(tar_fd, tar_header, sizeof(tar_header_t));
+
+                if (result <= 0 || tar_header->typeflag != DIRTYPE) { // link_path not found || not a directory
+                    free(tar_header); free(link_path); *no_entries = 0; return 0;
+                }
+            }
+            was_sym = true;
+            main_path = link_path;
+
+        } else { free(tar_header); *no_entries = 0; return 0;}
+
+    } else { main_path = path;}
+
+    /** !!! AT THIS STATE : tar_header exists && is a directory !!! **/
+
+    size_t nbr_curr_files = 0;
+    char *sub_dir = malloc(sizeof(char)*100); bool curr_sub_dir_flag = false;
+
+    lseek(tar_fd, next_offset_header(tar_header), SEEK_CUR);
+    while (read(tar_fd, tar_header, sizeof(tar_header_t)) > 0){// || !end_folder || nbr_folder_needed > 0) {
+        if (!is_in_folder(main_path, tar_header->name) || nbr_curr_files >= *no_entries) break;
+        /** !!! AT THIS STATE : tar_header exists && is in the directory analysed !!! **/
+
+        if (curr_sub_dir_flag) {if (!is_in_folder(sub_dir, tar_header->name)) curr_sub_dir_flag = false;} // Out of the sub-dir
+        if (!curr_sub_dir_flag) {
+            if (tar_header->typeflag == DIRTYPE) { // Is sub-dir
+                memcpy(sub_dir, tar_header->name, sizeof(char)*100);
+                curr_sub_dir_flag = true;
+                memcpy(entries[nbr_curr_files], tar_header->name, sizeof(char)*100); nbr_curr_files++;
+
+            } else if (tar_header->typeflag == REGTYPE || tar_header->typeflag == AREGTYPE || tar_header->typeflag == SYMTYPE || tar_header->typeflag == LNKTYPE) { // Is file
+                memcpy(entries[nbr_curr_files], tar_header->name, sizeof(char)*100); nbr_curr_files++;
+            }
+        }
+
+        lseek(tar_fd, next_offset_header(tar_header), SEEK_CUR);
+    }
+
+    *no_entries = nbr_curr_files;
+    free(sub_dir);
+    free(tar_header);
+    if (was_sym) { free(main_path); main_path = NULL;}
+    return 1;
 }
 
 /**

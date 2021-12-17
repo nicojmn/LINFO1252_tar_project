@@ -31,7 +31,7 @@ int main(int argc, char **argv) {
     }
 
     int fd = open(argv[1] , O_RDONLY);
-//    int fd = open("/home/guillaume/Projects/CLionProjects/[LINFO1252] Systemes Informatiques/[PROJECT2] TAR/soumission.tar" , O_RDONLY);
+//    int fd = open("/home/guillaume/Projects/CLionProjects/[LINFO1252] Systemes Informatiques/[PROJECT2] TAR/debug.tar" , O_RDONLY);
     if (fd == -1) {
         perror("open(tar_file)");
         return -1;
@@ -63,6 +63,17 @@ int main(int argc, char **argv) {
     // add directory CMake-build-debug for this test
     int dir_cmake = is_dir(fd, "cmake-build-debug/");
     printf("is_dir (cmake-build-debug) returned %d, and should return 1\n", dir_cmake);
+
+    size_t *no_entries = malloc(sizeof(size_t));
+    *no_entries = 8;
+    char **entries = malloc(sizeof(char**) * *no_entries);
+    for (int i = 0; i < *no_entries; ++i) {entries[i] = malloc(sizeof(char)*100);}
+    int list_lib_h = list(fd, "debug/", entries, no_entries);
+    printf("list returned %d\n", list_lib_h);
+    printf("no_entries = %zu\n", *no_entries);
+    printf("entries = \n");
+    for (int i = 0; i < *no_entries; ++i) printf("\t%s\n", entries[i]);
+    for (int i = 0; i < *no_entries; ++i) {free(entries[i]);} free(entries); free(no_entries);
 
     return 0;
 }
