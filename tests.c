@@ -31,7 +31,7 @@ int main(int argc, char **argv) {
     }
 
     int fd = open(argv[1] , O_RDONLY);
-//    int fd = open("/home/guillaume/Projects/CLionProjects/[LINFO1252] Systemes Informatiques/[PROJECT2] TAR/debug.tar" , O_RDONLY);
+//    int fd = open("/home/guillaume/Projects/CLionProjects/[LINFO1252] Systemes Informatiques/[PROJECT2] TAR/complex.tar" , O_RDONLY);
     if (fd == -1) {
         perror("open(tar_file)");
         return -1;
@@ -65,15 +65,16 @@ int main(int argc, char **argv) {
     printf("is_dir (cmake-build-debug) returned %d, and should return 1\n", dir_cmake);
 
     size_t *no_entries = malloc(sizeof(size_t));
-    *no_entries = 8;
+    size_t size = 5;
+    *no_entries = size;
     char **entries = malloc(sizeof(char**) * *no_entries);
     for (int i = 0; i < *no_entries; ++i) {entries[i] = malloc(sizeof(char)*100);}
-    int list_lib_h = list(fd, "debug/", entries, no_entries);
+    int list_lib_h = list(fd, "complex/sym_sym_dir1", entries, no_entries);
     printf("list returned %d\n", list_lib_h);
     printf("no_entries = %zu\n", *no_entries);
     printf("entries = \n");
     for (int i = 0; i < *no_entries; ++i) printf("\t%s\n", entries[i]);
-    for (int i = 0; i < *no_entries; ++i) {free(entries[i]);} free(entries); free(no_entries);
+    for (int i = 0; i < size; ++i) {free(entries[i]);} free(entries); free(no_entries);
 
     return 0;
 }

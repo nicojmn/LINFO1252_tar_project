@@ -199,8 +199,8 @@ int is_symlink(int tar_fd, char *path) {
 /**
  * Check if the elem_path is in the main_path
  *
- * @param main_path a path
- * @param elem_path a path
+ * @param main_path A path to an entry in the archive.
+ * @param elem_path A path to an entry in the archive.
  * @return true if elem_path is in main_path,
  *         false otherwise
  */
@@ -215,7 +215,7 @@ bool is_in_folder(const char* main_path, const char* elem_path) {
 /**
  * Find the last backslash '/' in the path
  *
- * @param path a path
+ * @param path A path to an entry in the archive.
  * @return a positive number which represents the index of the last '/' in the path.
  */
 int index_last_backslash(char *path) {
@@ -228,7 +228,7 @@ int index_last_backslash(char *path) {
 /**
  * Add a '/' at the end of the path.
  *
- * @param path a path
+ * @param path A path to an entry in the archive.
  */
 void dir_parser(char *path) {
     strcat(path, "/");
@@ -241,15 +241,48 @@ void dir_parser(char *path) {
  * @param link_name the filename of the file linked
  * @return the new full path to the link file.
  */
-char* redirect_linked_path(char *sym_path, char *link_name) {
+int redirect_linked_path(char *sym_path, char *link_name, char *link_path) {
     int parent_path_index = index_last_backslash(sym_path);
     uint len_link_name = strlen(link_name);
-    if (len_link_name + parent_path_index+1 >= 100) return NULL;
 
-    char *link_path = malloc(sizeof(char)*100);
+    if (len_link_name + parent_path_index+1 >= 100) return 1;
     memcpy(link_path, sym_path, parent_path_index+1);
-    memcpy(link_path+parent_path_index+1, link_name, len_link_name);
-    return link_path;
+    memcpy(link_path+parent_path_index+1, link_name, sizeof(char)*100 - len_link_name);
+    return 0;
+}
+
+/**
+ * Loop between multiples symlinks
+ *
+ * @param tar_fd A file descriptor pointing to the start of a valid tar archive file.
+ * @param tar_header The header of the current file.
+ * @param path A path to an entry in the archive.
+ * @param res_path An already malloced path where the final file/folder linked to the symlink are.
+ *
+ * @return 0 if the symlinks are linked to a folder,
+ *         1 if the symlinks are linked to a non-folder,
+ *        -1 if the symlinks are linked to a non-existed file/folder.
+ */
+int loop_symlink(int tar_fd, tar_header_t *tar_header, const char *const path, char *res_path) {
+    char *curr_path = malloc(sizeof(char)*100);
+    memcpy(curr_path, path, sizeof(char)*100);
+    while (tar_header->typeflag == SYMTYPE || tar_header->typeflag == LNKTYPE) {
+        redirect_linked_path(curr_path, tar_header->linkname, res_path);
+        lseek(tar_fd, offset_header(tar_fd, res_path), SEEK_SET);
+        long result = read(tar_fd, tar_header, sizeof(tar_header_t));
+
+        if (result <= 0) { // link_path not found
+            dir_parser(res_path); // Maybe a directory
+            lseek(tar_fd, offset_header(tar_fd, res_path), SEEK_SET);
+            result = read(tar_fd, tar_header, sizeof(tar_header_t));
+            if (result <= 0) { free(curr_path); return -1; }
+        }
+
+        if (tar_header->typeflag == DIRTYPE) { free(curr_path); return 0; }
+        memcpy(curr_path, res_path, sizeof(char)*100);
+    }
+    free(curr_path);
+    return 1;
 }
 
 /**
@@ -286,25 +319,15 @@ int list(int tar_fd, char *path, char **entries, size_t *no_entries) {
 
     } else if (tar_header->typeflag != DIRTYPE) { // path is not a directory
         if (tar_header->typeflag == SYMTYPE || tar_header->typeflag == LNKTYPE) { // path is a symlink
-            char* link_path = redirect_linked_path(path, tar_header->linkname);
-            lseek(tar_fd, offset_header(tar_fd, link_path), SEEK_SET);
-            long result = read(tar_fd, tar_header, sizeof(tar_header_t));
+            char* link_path = malloc(sizeof(char)*100);
+            if (loop_symlink(tar_fd, tar_header, path, link_path) == 0) { // symlink linked to a directory
+                was_sym = true;
+                main_path = link_path;
+            } else {free(tar_header); *no_entries = 0; return 0;}
 
-            if (result <= 0) { // link_path not found
-                dir_parser(link_path); // Maybe a directory
-                lseek(tar_fd, offset_header(tar_fd, link_path), SEEK_SET);
-                result = read(tar_fd, tar_header, sizeof(tar_header_t));
+        } else {free(tar_header); *no_entries = 0; return 0;}
 
-                if (result <= 0 || tar_header->typeflag != DIRTYPE) { // link_path not found || not a directory
-                    free(tar_header); free(link_path); *no_entries = 0; return 0;
-                }
-            }
-            was_sym = true;
-            main_path = link_path;
-
-        } else { free(tar_header); *no_entries = 0; return 0;}
-
-    } else { main_path = path;}
+    } else {main_path = path;}
 
     /** !!! AT THIS STATE : tar_header exists && is a directory !!! **/
 
@@ -335,7 +358,7 @@ int list(int tar_fd, char *path, char **entries, size_t *no_entries) {
     free(sub_dir);
     free(tar_header);
     if (was_sym) { free(main_path); main_path = NULL;}
-    return 1;
+    return nbr_curr_files <= 0 ? 0 : 1;
 }
 
 /**
