@@ -14,3 +14,6 @@ submit: all
 
 complex_tar:
 	tar --posix --pax-option delete=".*" --pax-option delete="*time*" --no-xattrs --no-acl --no-selinux -c complex > complex.tar
+
+mem-check:
+	valgrind --leak-check=full --leak-resolution=med --track-origins=yes --vgdb=no ./lib_tar.c

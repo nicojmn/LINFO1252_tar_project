@@ -380,6 +380,54 @@ int list(int tar_fd, char *path, char **entries, size_t *no_entries) {
  *
  */
 ssize_t read_file(int tar_fd, char *path, size_t offset, uint8_t *dest, size_t *len) {
+
+    // prepare file : PASS TEST
+
     lseek(tar_fd, 0, SEEK_SET); // Point at the beginning of the file
+
+    if (exists(tar_fd, path) == 0) return -1;
+
+    off_t tar_header_offset = offset_header(tar_fd, path);
+    lseek(tar_fd, tar_header_offset, SEEK_SET);
+
+    tar_header_t *tar_header = (tar_header_t *) malloc(sizeof(tar_header_t));
+    read(tar_fd, tar_header, sizeof(tar_header_t));
+    printf("Tar header name : %s\n", tar_header->name);
+    printf("Tar header typeflag : %c\n", tar_header->typeflag);
+
+    if (tar_header->typeflag != REGTYPE) {
+        if (tar_header->typeflag == SYMTYPE) {
+            off_t symlink_offset = offset_header(tar_fd, tar_header->linkname);
+            lseek(tar_fd, symlink_offset, SEEK_SET);
+
+            tar_header_t *hard_link_header = (tar_header_t *) malloc(sizeof(tar_header_t));
+            if (hard_link_header == NULL) {
+                printf("ERROR ! \n");
+                return -3;
+            }
+
+            if (hard_link_header->typeflag != REGTYPE) {
+                free(hard_link_header);
+                return -1;
+            }
+            free(hard_link_header);
+        } else return -1;
+    }
+
+    struct stat *tar_stat = (struct stat *) malloc(sizeof(struct stat));
+    if (tar_stat == NULL) return -3;
+    if (fstat(tar_fd, tar_stat) == -1) return -3;
+
+    if (offset > tar_stat->st_size || offset < tar_stat->st_size) return -2;
+
+    // read file : FAIL TEST
+
+
+
+
+    // free all memory allocation
+
+    free(tar_stat);
+    free(tar_header);
     return 0;
 }
