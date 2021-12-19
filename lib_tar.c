@@ -382,18 +382,20 @@ int list(int tar_fd, char *path, char **entries, size_t *no_entries) {
 ssize_t read_file(int tar_fd, char *path, size_t offset, uint8_t *dest, size_t *len) {
 
     // prepare file : PASS TEST
-
+    char good_path[100];
+    bool is_symlink = false;
+    ssize_t bytes_remaining;
     lseek(tar_fd, 0, SEEK_SET); // Point at the beginning of the file
 
+
     if (exists(tar_fd, path) == 0) return -1;
+
 
     off_t tar_header_offset = offset_header(tar_fd, path);
     lseek(tar_fd, tar_header_offset, SEEK_SET);
 
     tar_header_t *tar_header = (tar_header_t *) malloc(sizeof(tar_header_t));
     read(tar_fd, tar_header, sizeof(tar_header_t));
-    printf("Tar header name : %s\n", tar_header->name);
-    printf("Tar header typeflag : %c\n", tar_header->typeflag);
 
     if (tar_header->typeflag != REGTYPE) {
         if (tar_header->typeflag == SYMTYPE) {
@@ -407,12 +409,16 @@ ssize_t read_file(int tar_fd, char *path, size_t offset, uint8_t *dest, size_t *
             }
 
             if (hard_link_header->typeflag != REGTYPE) {
+                strcpy(good_path, hard_link_header->name);
                 free(hard_link_header);
                 return -1;
             }
+            is_symlink = true;
             free(hard_link_header);
         } else return -1;
     }
+
+    if (!is_symlink) strcpy(good_path, path);
 
     struct stat *tar_stat = (struct stat *) malloc(sizeof(struct stat));
     if (tar_stat == NULL) return -3;
@@ -422,6 +428,23 @@ ssize_t read_file(int tar_fd, char *path, size_t offset, uint8_t *dest, size_t *
 
     // read file : FAIL TEST
 
+    off_t file_header_offset = offset_header(tar_fd, good_path);
+    lseek(tar_fd, file_header_offset, SEEK_SET); // point at beginning of tar header
+    tar_header_t *file_header = (tar_header_t *) malloc(sizeof(tar_header_t));
+    read(tar_fd, file_header, sizeof(tar_header_t));
+
+    ssize_t file_size = TAR_INT(file_header->size);
+    size_t dest_size = sizeof(dest);
+
+    lseek(tar_fd, (long) offset, SEEK_CUR); // point at offset of file
+
+    if (file_size > dest_size) {
+        *len = read(tar_fd, dest, file_size - dest_size - offset);
+        bytes_remaining = file_size - (long) dest_size - (long) offset;
+    } else {
+        *len = read(tar_fd, dest, file_size - offset);
+        bytes_remaining = 0;
+    }
 
 
 
@@ -429,5 +452,6 @@ ssize_t read_file(int tar_fd, char *path, size_t offset, uint8_t *dest, size_t *
 
     free(tar_stat);
     free(tar_header);
-    return 0;
+    free(file_header);
+    return bytes_remaining;
 }

@@ -89,7 +89,7 @@ int main(int argc, char **argv) {
     // read_file() tests
     printf("\n\n=======================\n|| read_file() tests ||\n=======================\n\n");
 
-    struct stat *tar_stat = (struct stat *) malloc(sizeof(struct stat));
+    /*struct stat *tar_stat = (struct stat *) malloc(sizeof(struct stat));
     if (tar_stat == NULL) return -3;
     if (fstat(fd, tar_stat) == -1) return -3;
 
@@ -97,30 +97,37 @@ int main(int argc, char **argv) {
     size_t overflow_offset = tar_size * 2;
     size_t good_offset = tar_size / 2;
     uint8_t *buffer = (uint8_t *) malloc(sizeof(uint8_t));
-    size_t *len = (size_t *) malloc(sizeof(size_t));
+    size_t *len_false_tests = (size_t *) malloc(sizeof(size_t));
 
 
-    //printf("Is symlink : %i\n", is_symlink(fd, "symlink-makefile"));
-    //printf("Symlink real path : %s\n", get_real_path(fd, "symlink-makefile"));
-
-    ssize_t read_no_file = read_file(fd, "efgrhtyjku.zzdfegrh", good_offset, buffer, len);
-    ssize_t read_symlink_file = read_file(fd, "symlink-makefile", good_offset, buffer, len);
-    ssize_t read_symlink_dir = read_file(fd, "symlink-project", good_offset, buffer, len);
-    ssize_t read_reg_file = read_file(fd, "lib_tar.h", good_offset, buffer, len);
+    ssize_t read_no_file = read_file(fd, "efgrhtyjku.zzdfegrh", good_offset, buffer, len_false_tests);
+    ssize_t read_symlink_file = read_file(fd, "symlink-makefile", good_offset, buffer, len_false_tests);
+    ssize_t read_symlink_dir = read_file(fd, "symlink-project", good_offset, buffer, len_false_tests);
+    ssize_t read_reg_file = read_file(fd, "lib_tar.h", good_offset, buffer, len_false_tests);
 
     printf("read_file() with no file in tar should return -1 and it return %zi\n", read_no_file);
     printf("read_file() with symlink file in tar should return 0 and it return %zi\n", read_symlink_file);
     printf("read_file() with symlink dir in tar should return -1 and it return %zi\n", read_symlink_dir);
     printf("read_file() with regular file in tar should return 0 and it return %zi\n", read_reg_file);
 
-    ssize_t read_makefile = read_file(fd, "Makefile", overflow_offset, buffer, len);
-    ssize_t read_makefile_2 = read_file(fd, "Makefile", -overflow_offset, buffer, len);
+    ssize_t read_makefile = read_file(fd, "Makefile", overflow_offset, buffer, len_false_tests);
+    ssize_t read_makefile_2 = read_file(fd, "Makefile", -overflow_offset, buffer, len_false_tests);
 
     printf("read_file() with offset > tar size should return -2 and it returned %zi\n", read_makefile);
-    printf("read_file() with offset < tar size should return -2 and it returned %zi\n", read_makefile_2);
+    printf("read_file() with offset < tar size should return -2 and it returned %zi\n", read_makefile_2);*/
 
-    free(buffer);
+    // REAL test
+    uint8_t *dest = (uint8_t *) malloc(sizeof(dest) * 11);
+    size_t *len = (size_t *) malloc(sizeof(size_t));
+    *(dest + 10) = '\0';
+    *len = 10;
+    ssize_t real_read = read_file(fd, "file_test.txt", 1, dest, len);
+    printf("read_file() => ret value :%zd, dest : %s, len %zu\n", real_read, (char *) dest, *len);
+
+
+    free(dest);
     free(len);
-
+    /*free(buffer);
+    free(len_false_tests);*/
     return 0;
 }
