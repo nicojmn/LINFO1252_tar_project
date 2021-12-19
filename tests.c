@@ -121,8 +121,8 @@ int main(int argc, char **argv) {
     size_t *len = (size_t *) malloc(sizeof(size_t));
     *(dest + 10) = '\0';
     *len = 10;
-    ssize_t real_read = read_file(fd, "file_test.txt", 1, dest, len);
-    printf("read_file() => ret value :%zd, dest : %s, len %zu\n", real_read, (char *) dest, *len);
+    ssize_t real_read = read_file(fd, "lib_tar.h", 1, dest, len);
+    printf("\n\nread_file() => ret value : %zd, dest : %s, len : %zu\n\n", real_read, (char *) dest, *len);
 
 
     free(dest);

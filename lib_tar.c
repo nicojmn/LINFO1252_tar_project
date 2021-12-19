@@ -424,7 +424,7 @@ ssize_t read_file(int tar_fd, char *path, size_t offset, uint8_t *dest, size_t *
     if (tar_stat == NULL) return -3;
     if (fstat(tar_fd, tar_stat) == -1) return -3;
 
-    if (offset > tar_stat->st_size || offset < tar_stat->st_size) return -2;
+    if (offset > tar_stat->st_size || offset < 0) return -2;
 
     // read file : FAIL TEST
 
@@ -449,9 +449,10 @@ ssize_t read_file(int tar_fd, char *path, size_t offset, uint8_t *dest, size_t *
 
 
     // free all memory allocation
-
-    free(tar_stat);
+    /*printf("HERE\n");
+    free(tar_stat); // erreur -> ici
+    printf("HERE 2 !\n");
     free(tar_header);
-    free(file_header);
+    free(file_header);*/
     return bytes_remaining;
 }
