@@ -361,6 +361,11 @@ int list(int tar_fd, char *path, char **entries, size_t *no_entries) {
     return nbr_curr_files <= 0 ? 0 : 1;
 }
 
+size_t len_payload(size_t len_buf, size_t len_file, size_t offset) {
+    if (len_buf < len_file - offset) return len_buf;
+    return len_file-offset;
+}
+
 /**
  * Reads a file at a given path in the archive.
  *
@@ -380,78 +385,38 @@ int list(int tar_fd, char *path, char **entries, size_t *no_entries) {
  *
  */
 ssize_t read_file(int tar_fd, char *path, size_t offset, uint8_t *dest, size_t *len) {
+    lseek(tar_fd, offset_header(tar_fd, path), SEEK_SET);
+    tar_header_t *tar_header = malloc(sizeof(tar_header_t));
+    if (read(tar_fd, tar_header, sizeof(tar_header_t)) <= 0) return -1;
+    char *curr_path = malloc(sizeof(char) * 100);
 
-    // prepare file : PASS TEST
-    char good_path[100];
-    bool is_symlink = false;
-    ssize_t bytes_remaining;
-    lseek(tar_fd, 0, SEEK_SET); // Point at the beginning of the file
-
-
-    if (exists(tar_fd, path) == 0) return -1;
-
-
-    off_t tar_header_offset = offset_header(tar_fd, path);
-    lseek(tar_fd, tar_header_offset, SEEK_SET);
-
-    tar_header_t *tar_header = (tar_header_t *) malloc(sizeof(tar_header_t));
-    read(tar_fd, tar_header, sizeof(tar_header_t));
-
-    if (tar_header->typeflag != REGTYPE) {
-        if (tar_header->typeflag == SYMTYPE) {
-            off_t symlink_offset = offset_header(tar_fd, tar_header->linkname);
-            lseek(tar_fd, symlink_offset, SEEK_SET);
-
-            tar_header_t *hard_link_header = (tar_header_t *) malloc(sizeof(tar_header_t));
-            if (hard_link_header == NULL) {
-                printf("ERROR ! \n");
-                return -3;
-            }
-
-            if (hard_link_header->typeflag != REGTYPE) {
-                strcpy(good_path, hard_link_header->name);
-                free(hard_link_header);
-                return -1;
-            }
-            is_symlink = true;
-            free(hard_link_header);
-        } else return -1;
+    if (tar_header->typeflag == SYMTYPE || tar_header->typeflag == LNKTYPE) { // path is a symlink
+        if (loop_symlink(tar_fd, tar_header, path, curr_path) != 1) { // symlink linked to a file
+            free(tar_header);
+            free(curr_path);
+            return -1;
+        }
     }
 
-    if (!is_symlink) strcpy(good_path, path);
+    char flag = tar_header->typeflag;
+    size_t size = TAR_INT(tar_header->size);
+    int status_code = 0;
 
-    struct stat *tar_stat = (struct stat *) malloc(sizeof(struct stat));
-    if (tar_stat == NULL) return -3;
-    if (fstat(tar_fd, tar_stat) == -1) return -3;
+    if (flag == REGTYPE || flag == AREGTYPE) {
+        if (offset > size) return -2;
+        size_t len_buf = len_payload(*len, size, offset);
 
-    if (offset > tar_stat->st_size || offset < tar_stat->st_size) return -2;
+        lseek(tar_fd, (off_t) offset, SEEK_CUR);
+        read(tar_fd, dest, len_buf);
+        *len = len_buf;
+        free(tar_header);
+        status_code = size - offset - len_buf;
 
-    // read file : FAIL TEST
+    } else if (flag == DIRTYPE) {
+        free(tar_header);
+        status_code = -1;
 
-    off_t file_header_offset = offset_header(tar_fd, good_path);
-    lseek(tar_fd, file_header_offset, SEEK_SET); // point at beginning of tar header
-    tar_header_t *file_header = (tar_header_t *) malloc(sizeof(tar_header_t));
-    read(tar_fd, file_header, sizeof(tar_header_t));
-
-    ssize_t file_size = TAR_INT(file_header->size);
-    size_t dest_size = sizeof(dest);
-
-    lseek(tar_fd, (long) offset, SEEK_CUR); // point at offset of file
-
-    if (file_size > dest_size) {
-        *len = read(tar_fd, dest, file_size - dest_size - offset);
-        bytes_remaining = file_size - (long) dest_size - (long) offset;
-    } else {
-        *len = read(tar_fd, dest, file_size - offset);
-        bytes_remaining = 0;
     }
 
-
-
-    // free all memory allocation
-
-    free(tar_stat);
-    free(tar_header);
-    free(file_header);
-    return bytes_remaining;
+    return status_code;
 }
